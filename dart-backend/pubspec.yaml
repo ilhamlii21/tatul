@@ -1,0 +1,13 @@
+name: dart_backend
+description: Comparative benchmark for Dart backend with nested JSON parsing.
+version: 1.0.0
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  http: ^1.2.0
+
+dev_dependencies:
+  test: ^1.24.0
