@@ -6,13 +6,20 @@ Penelitian ini membandingkan **efisiensi pengembangan (Development Efficiency)**
 
 ## 📁 Struktur Folder (Folderization)
 
-Struktur proyek saat ini menerapkan pemisahan modular arsitektur bersih (MVC/Clean Architecture style) dan isolasi kredensial:
+Struktur proyek saat ini menerapkan pemisahan modular arsitektur bersih (MVC/Clean Architecture style), isolasi kredensial, dan pencatatan riwayat latensi otomatis:
 
 ```text
 method/
 ├── README.md                 # Dokumen petunjuk & tata cara pengujian ini
+├── result.md                 # Dokumen data empiris kesimpulan penelitian
 ├── .gitignore                # File Git Ignore untuk mengamankan kredensial
 ├── config.json               # Konfigurasi kredensial Supabase (DIIABAIKAN OLEH GIT)
+├── go_latencies.json         # Hasil log latensi Go per iterasi (Auto-generated)
+├── dart_latencies.json       # Hasil log latensi Dart per iterasi (Auto-generated)
+├── network_latency.png       # Grafik batang perbandingan Network Latency
+├── parsing_latency.png       # Grafik batang perbandingan Parsing Latency
+├── network_latency_line.png  # Grafik garis stabilitas Network Latency
+├── parsing_latency_line.png  # Grafik garis stabilitas Parsing Latency
 ├── database/
 │   └── schema.sql            # Skema DDL tabel database Supabase (UUID & JSONB)
 ├── go-backend/
@@ -20,9 +27,9 @@ method/
 │   ├── models/
 │   │   └── fleet.go          # Model data Go terpisah (Level 1-3)
 │   ├── main.go               # Controller utama Go (fetch & print data)
-│   ├── main_test.go          # Test suite 50 iterasi & benchmark Go
+│   ├── main_test.go          # Test suite 100 iterasi & benchmark Go
 │   └── visualization/
-│       └── main.go           # Script visualisasi penghasil grafik PNG
+│       └── main.go           # Script visualisasi penghasil grafik PNG (Batang & Garis)
 └── dart-backend/
     ├── pubspec.yaml          # Dependensi Dart
     ├── lib/
@@ -31,7 +38,7 @@ method/
     ├── bin/
     │   └── main.dart         # Controller utama Dart (fetch & print data)
     └── test/
-        └── main_test.dart    # Test suite 50 iterasi Dart
+        └── main_test.dart    # Test suite 100 iterasi (Sekuensial & Paralel) Dart
 ```
 
 ---
@@ -101,13 +108,17 @@ CREATE TABLE trip_telemetry (
    ```bash
    go run main.go
    ```
-3. Jalankan **Latency Test (50 Iterasi)** untuk merekam rata-rata waktu parsing dan network:
+3. Jalankan **Semua Uji Latensi (Sekuensial & Paralel Goroutine)**:
    ```bash
-   go test -v -run=TestAverageLatency50Iterations
+   go test -v
    ```
-4. Jalankan **Micro-Benchmark** (pengujian performa throughput Go):
+4. Jalankan **Hanya Uji Sekuensial (100 Iterasi)** (menghasilkan `go_latencies.json`):
    ```bash
-   go test -run=^$ -bench=. -benchtime=10s
+   go test -v -run=TestAverageLatency100Iterations
+   ```
+5. Jalankan **Hanya Uji Paralel (100 Iterasi Goroutine)**:
+   ```bash
+   go test -v -run=TestConcurrentLatency100Iterations
    ```
 
 ### 🎯 Dart Backend
@@ -124,16 +135,24 @@ CREATE TABLE trip_telemetry (
    ```bash
    dart run bin/main.dart
    ```
-4. Jalankan **Latency Test (50 Iterasi)** untuk merekam rata-rata waktu:
+4. Jalankan **Semua Uji Latensi (Sekuensial & Paralel Event Loop)** (menghasilkan `dart_latencies.json`):
    ```bash
    dart test test/main_test.dart
+   ```
+5. Jalankan **Hanya Uji Sekuensial (100 Iterasi)**:
+   ```bash
+   dart test test/main_test.dart -N "Sequential"
+   ```
+6. Jalankan **Hanya Uji Paralel (100 Iterasi Event Loop)**:
+   ```bash
+   dart test test/main_test.dart -N "Parallel"
    ```
 
 ---
 
 ## 📈 4. Visualisasi Grafik
 
-Untuk men-generate file grafik batang (`network_latency.png` dan `parsing_latency.png`), jalankan kode visualisasi berikut:
+Untuk men-generate file grafik batang (`network_latency.png`, `parsing_latency.png`) dan grafik garis stabilitas (`network_latency_line.png`, `parsing_latency_line.png`), jalankan kode visualisasi berikut setelah menjalankan tes di atas:
 
 1. Masuk ke direktori visualization Go:
    ```bash
@@ -143,7 +162,7 @@ Untuk men-generate file grafik batang (`network_latency.png` dan `parsing_latenc
    ```bash
    go run main.go
    ```
-Grafik perbandingan akan langsung disimpan di root folder proyek ini.
+Semua file grafik PNG hasil render akan langsung disimpan secara otomatis di root folder proyek ini.
 
 ---
 
@@ -156,3 +175,4 @@ Berikut adalah metrik yang diukur dalam penelitian jurnal Anda:
 | | Lines of Code (LoC) | Baris kode pengujian yang ditulis | VS Code Extension (VS Code Counter) |
 | **Performance** | Parsing Latency | Waktu memproses JSON menjadi objek model | Internal timer API (`time.Since` di Go, `Stopwatch` di Dart) |
 | | Network Latency | Waktu yang dihabiskan selama transfer HTTP data | Selisih waktu mulai kirim s/d penerimaan respons body |
+| | Concurrency | Total waktu eksekusi 100 request simultan | Mengirimkan 100 request paralel secara bersamaan |

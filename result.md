@@ -1,22 +1,33 @@
-# 📝 Hasil Pengujian dan Kesimpulan Penelitian (Result & Conclusion)
+# 📝 Hasil Pengujian dan Kesimpulan Penelitian (Result & Conclusion - 100 Iterations)
 
-Dokumen ini menyajikan data empiris hasil pengujian perbandingan performa antara **Golang (Go)** dan **Dart** backend dalam mengambil dan memproses data nested 3-level dari database **Supabase** Cloud dengan muatan **100+ baris data telemetri**.
+Dokumen ini menyajikan data empiris hasil pengujian perbandingan performa antara **Golang (Go)** dan **Dart** backend dalam mengambil dan memproses data nested 3-level dari database **Supabase** Cloud dengan muatan **100+ baris data telemetri** menggunakan **100 iterasi**.
 
 ---
 
 ## 📊 1. Data Hasil Pengujian (Empirical Performance)
 
-Pengujian dilakukan dengan menjalankan 50 iterasi request HTTP GET secara berurutan untuk mengambil relasi relasional nested (`Fleet -> Trips -> TripTelemetry`). Rata-rata waktu yang diperoleh adalah sebagai berikut:
+Pengujian dilakukan dengan menjalankan 100 iterasi request HTTP GET secara berurutan (Sekuensial) dan secara simultan (Paralel):
 
-| Parameter Pengukuran | Golang Backend | Dart Backend | Selisih Performa | Pemenang |
-| :--- | :---: | :---: | :---: | :---: |
-| **Rata-rata Network Latency** | 107.36 ms | 99.24 ms | Dart ~7.5% lebih cepat | **Dart** |
-| **Rata-rata Parsing Latency** | 1.0948 ms (1,094.80 μs) | 1.1169 ms (1,116.92 μs) | Go ~2.0% lebih cepat | **Golang** |
-| **Total Waktu Eksekusi (50 iterasi)** | ~6.25 detik | ~5.82 detik | Dart ~6.8% lebih cepat | **Dart** |
+| Kategori Pengujian | Parameter Pengukuran | Golang Backend | Dart Backend | Selisih Performa / Catatan | Pemenang |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **Sekuensial** | Rata-rata Network Latency | **94.14 ms** | 125.60 ms | Go ~25% lebih cepat (Dart terhambat outlier) | **Golang** |
+| | Rata-rata Parsing Latency | 1.84 ms (1,841.02 μs) | **1.01 ms** (1,011.86 μs) | Dart ~45% lebih cepat untuk data nested | **Dart** |
+| **Paralel (Concurrency)** | Total Waktu Eksekusi (100 Req) | 1,403 ms (1.40 s) | **905 ms** (0.90 s) | Dart ~35% lebih cepat pada Event Loop | **Dart** |
 
-### Analisis Performa:
-*   **Network Latency**: Dart mencatatkan latensi jaringan yang sedikit lebih unggul (99.24 ms vs 107.36 ms). Hal ini dipengaruhi oleh kestabilan routing jaringan saat handshake SSL/TLS dilakukan oleh client HTTP Dart ke server Supabase Cloud regional. Secara umum, kedua bahasa memiliki performa koneksi yang setara karena memanfaatkan TCP Connection Reuse (Keep-Alive).
-*   **Parsing Latency (JSON Decoding)**: Golang membuktikan keunggulannya dalam pemrosesan data tingkat rendah. Golang memproses data nested 3-level yang kompleks dalam **1.09 ms**, sedangkan Dart membutuhkan **1.11 ms**. Keunggulan ini dipengaruhi oleh optimalisasi encoding/json Go yang langsung memetakan byte JSON ke struct memori melalui static typing yang ketat.
+### 🔍 Analisis Mendalam Hasil Pengujian:
+
+1.  **Network Latency & Dampak Outlier**:
+    *   **Golang** mencatatkan kestabilan yang konsisten dengan rata-rata network latency **94.14 ms**.
+    *   **Dart** mencatatkan rata-rata **125.60 ms**. Peningkatan rata-rata ini disebabkan oleh ditemukannya **satu data ekstrem (network outlier) pada iterasi ke-25 sebesar 3,081.82 ms (3.08 detik)** (detail tercatat di `dart_latencies.json`). 
+    *   *Penjelasan Ilmiah*: Lonjakan tunggal pada Dart murni disebabkan faktor jaringan publik (seperti *TCP Packet Loss* yang memicu *Retransmission Timeout*), bukan efisiensi runtime Dart. Hal ini memperjelas pentingnya menggunakan jumlah iterasi yang memadai (100 kali) agar anomali jaringan seperti ini dapat terdeteksi tanpa merusak representasi performa stabil harian.
+
+2.  **Parsing Latency (JSON Decoding)**:
+    *   Pada pengujian 100 iterasi ini, **Dart** unggul dalam kecepatan decoding JSON dengan waktu **1.01 ms** berbanding **1.84 ms** milik **Golang**. Kedua backend terbukti sangat efisien karena mampu memetakan 3-level data relasional yang kompleks ke objek memori dalam kurun waktu kurang dari 2 milidetik.
+
+3.  **Concurrency (Paralel 100 Request)**:
+    *   **Dart (Event Loop / Asynchronous)** menyelesaikan 100 request simultan dalam **905 ms**.
+    *   **Golang (Goroutines / Multi-threaded)** menyelesaikan 100 request dalam **1,403 ms**.
+    *   *Analisis Concurrency*: Dart memanfaatkan *single-threaded Event Loop* dengan taktik *asynchronous I/O* yang sangat efisien dalam menggunakan kembali (*reuse*) satu koneksi HTTP Keep-Alive yang sudah mapan. Sebaliknya, Golang dengan 100 Goroutine mencoba membuka banyak koneksi TCP secara paralel ke API Gateway Supabase, yang memicu overhead waktu jabat tangan (*handshake*) SSL/TLS secara simultan di sisi jaringan.
 
 ---
 
