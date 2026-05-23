@@ -34,7 +34,7 @@ func LoadConfig() (Config, error) {
 
 // FetchAndParseData fetches the nested data from Supabase and parses it, measuring both network latency and parsing latency.
 func FetchAndParseData(client *http.Client, baseURL string, anonKey string) ([]models.Fleet, time.Duration, time.Duration, error) {
-	// Querying resource embedding: fleet with its nested trips and trip_telemetry
+	// Querying resource embedding: fleet with its nested tripsand trip_telemetry
 	url := baseURL + "fleet?select=*,trips(*,trip_telemetry(*))"
 
 	reqStart := time.Now()
