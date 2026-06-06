@@ -32,8 +32,39 @@ func main() {
 		rootPath = "."
 	}
 
+	// Load latency data first
+	goLat, errGo := readLatencies(filepath.Join(rootPath, "go_latencies.json"))
+	dartLat, errDart := readLatencies(filepath.Join(rootPath, "dart_latencies.json"))
+
+	if errGo != nil || errDart != nil {
+		fmt.Printf("Warning: File log latensi tidak lengkap (Go err: %v, Dart err: %v). Lewati pembuatan chart.\n", errGo, errDart)
+		fmt.Println("Silakan jalankan 'go test' di go-backend dan 'dart test' di dart-backend terlebih dahulu.")
+		return
+	}
+
+	// Hitung rata-rata
+	var goNetSum, goParseSum float64
+	for _, v := range goLat.Network {
+		goNetSum += v
+	}
+	for _, v := range goLat.Parsing {
+		goParseSum += v
+	}
+	goNetAvg := goNetSum / float64(len(goLat.Network))
+	goParseAvg := goParseSum / float64(len(goLat.Parsing))
+
+	var dartNetSum, dartParseSum float64
+	for _, v := range dartLat.Network {
+		dartNetSum += v
+	}
+	for _, v := range dartLat.Parsing {
+		dartParseSum += v
+	}
+	dartNetAvg := dartNetSum / float64(len(dartLat.Network))
+	dartParseAvg := dartParseSum / float64(len(dartLat.Parsing))
+
 	// ==========================================
-	// 1. GENERATE BAR CHARTS (Seperti Sebelumnya)
+	// 1. GENERATE BAR CHARTS (Dinamis berdasarkan data log)
 	// ==========================================
 
 	// Bar Chart Network Latency
@@ -51,8 +82,8 @@ func main() {
 		Width:    600,
 		BarWidth: 80,
 		Bars: []chart.Value{
-			{Value: 94.14, Label: "Go (94.14 ms)"},
-			{Value: 103.30, Label: "Dart (103.30 ms)"},
+			{Value: goNetAvg, Label: fmt.Sprintf("Go (%.2f ms)", goNetAvg)},
+			{Value: dartNetAvg, Label: fmt.Sprintf("Dart (%.2f ms)", dartNetAvg)},
 		},
 	}
 
@@ -79,8 +110,8 @@ func main() {
 		Width:    600,
 		BarWidth: 80,
 		Bars: []chart.Value{
-			{Value: 1.8410, Label: "Go (1.84 ms)"},
-			{Value: 1.1938, Label: "Dart (1.19 ms)"},
+			{Value: goParseAvg, Label: fmt.Sprintf("Go (%.2f ms)", goParseAvg)},
+			{Value: dartParseAvg, Label: fmt.Sprintf("Dart (%.2f ms)", dartParseAvg)},
 		},
 	}
 
@@ -95,15 +126,6 @@ func main() {
 	// ==========================================
 	// 2. GENERATE LINE CHARTS (Berdasarkan Log)
 	// ==========================================
-
-	goLat, errGo := readLatencies(filepath.Join(rootPath, "go_latencies.json"))
-	dartLat, errDart := readLatencies(filepath.Join(rootPath, "dart_latencies.json"))
-
-	if errGo != nil || errDart != nil {
-		fmt.Printf("Warning: File log latensi tidak lengkap (Go err: %v, Dart err: %v). Lewati pembuatan Line Chart.\n", errGo, errDart)
-		fmt.Println("Silakan jalankan 'go test' di go-backend dan 'dart test' di dart-backend terlebih dahulu.")
-		return
-	}
 
 	// Buat nilai sumbu X (1 sampai 100)
 	iterations := len(goLat.Network)

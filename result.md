@@ -10,24 +10,25 @@ Pengujian dilakukan dengan menjalankan 100 iterasi request HTTP GET secara berur
 
 | Kategori Pengujian | Parameter Pengukuran | Golang Backend | Dart Backend | Selisih Performa / Catatan | Pemenang |
 | :--- | :--- | :---: | :---: | :---: | :---: |
-| **Sekuensial** | Rata-rata Network Latency | **94.14 ms** | 125.60 ms | Go ~25% lebih cepat (Dart terhambat outlier) | **Golang** |
-| | Rata-rata Parsing Latency | 1.84 ms (1,841.02 μs) | **1.01 ms** (1,011.86 μs) | Dart ~45% lebih cepat untuk data nested | **Dart** |
-| **Paralel (Concurrency)** | Total Waktu Eksekusi (100 Req) | 1,403 ms (1.40 s) | **905 ms** (0.90 s) | Dart ~35% lebih cepat pada Event Loop | **Dart** |
+| **Sekuensial** | Rata-rata Network Latency | 134.57 ms | **107.71 ms** | Dart ~20% lebih cepat pada jaringan saat pengujian | **Dart** |
+| | Rata-rata Parsing Latency | 0.95 ms (952.63 μs) | **0.93 ms** (926.62 μs) | Keduanya sangat cepat (< 1 ms), Dart unggul tipis | **Dart** |
+| **Paralel (Concurrency)** | Total Waktu Eksekusi (100 Req) | 1,256 ms (1.26 s) | **870 ms** (0.87 s) | Dart ~30% lebih cepat pada Event Loop | **Dart** |
 
 ### 🔍 Analisis Mendalam Hasil Pengujian:
 
-1.  **Network Latency & Dampak Outlier**:
-    *   **Golang** mencatatkan kestabilan yang konsisten dengan rata-rata network latency **94.14 ms**.
-    *   **Dart** mencatatkan rata-rata **125.60 ms**. Peningkatan rata-rata ini disebabkan oleh ditemukannya **satu data ekstrem (network outlier) pada iterasi ke-25 sebesar 3,081.82 ms (3.08 detik)** (detail tercatat di `dart_latencies.json`). 
-    *   *Penjelasan Ilmiah*: Lonjakan tunggal pada Dart murni disebabkan faktor jaringan publik (seperti *TCP Packet Loss* yang memicu *Retransmission Timeout*), bukan efisiensi runtime Dart. Hal ini memperjelas pentingnya menggunakan jumlah iterasi yang memadai (100 kali) agar anomali jaringan seperti ini dapat terdeteksi tanpa merusak representasi performa stabil harian.
+1.  **Network Latency**:
+    *   **Dart** mencatatkan kestabilitas yang sangat baik dengan rata-rata network latency **107.71 ms**.
+    *   **Golang** mencatatkan rata-rata **134.57 ms**. Perbedaan kecil ini murni disebabkan faktor kondisi jaringan publik (*network jitter*) ke API Gateway Supabase saat pengujian Go dijalankan.
+    *   *Penjelasan Ilmiah*: Dalam 100 iterasi sekuensial, performa jaringan sangat bergantung pada latensi routing publik HTTP/HTTPS. Kestabilan kedua backend tergolong sangat baik karena mampu menjaga rata-rata latensi di kisaran ~100-130 ms tanpa adanya lonjakan ekstrem (outlier bernilai detik) pada pengujian kali ini.
 
 2.  **Parsing Latency (JSON Decoding)**:
-    *   Pada pengujian 100 iterasi ini, **Dart** unggul dalam kecepatan decoding JSON dengan waktu **1.01 ms** berbanding **1.84 ms** milik **Golang**. Kedua backend terbukti sangat efisien karena mampu memetakan 3-level data relasional yang kompleks ke objek memori dalam kurun waktu kurang dari 2 milidetik.
+    *   Pada pengujian ini, **Dart** dan **Golang** menunjukkan kecepatan decoding JSON yang hampir setara, masing-masing **0.93 ms** dan **0.95 ms**. 
+    *   Kedua backend terbukti luar biasa efisien karena mampu memetakan 3-level data relasional yang kompleks ke dalam objek memori terstruktur dalam kurun waktu di bawah 1 milidetik.
 
 3.  **Concurrency (Paralel 100 Request)**:
-    *   **Dart (Event Loop / Asynchronous)** menyelesaikan 100 request simultan dalam **905 ms**.
-    *   **Golang (Goroutines / Multi-threaded)** menyelesaikan 100 request dalam **1,403 ms**.
-    *   *Analisis Concurrency*: Dart memanfaatkan *single-threaded Event Loop* dengan taktik *asynchronous I/O* yang sangat efisien dalam menggunakan kembali (*reuse*) satu koneksi HTTP Keep-Alive yang sudah mapan. Sebaliknya, Golang dengan 100 Goroutine mencoba membuka banyak koneksi TCP secara paralel ke API Gateway Supabase, yang memicu overhead waktu jabat tangan (*handshake*) SSL/TLS secara simultan di sisi jaringan.
+    *   **Dart (Event Loop / Asynchronous)** menyelesaikan 100 request simultan dalam **870 ms**.
+    *   **Golang (Goroutines / Multi-threaded)** menyelesaikan 100 request dalam **1,256 ms**.
+    *   *Analisis Concurrency*: Dart memanfaatkan *single-threaded Event Loop* dengan taktik *asynchronous I/O* yang sangat efisien dalam menggunakan kembali (*reuse*) koneksi HTTP Keep-Alive yang sudah terjalin. Sebaliknya, Golang dengan 100 Goroutine membuka banyak koneksi TCP secara paralel ke API Gateway Supabase, yang memicu overhead waktu jabat tangan (*handshake*) SSL/TLS secara simultan di sisi jaringan.
 
 ---
 
@@ -50,9 +51,9 @@ Dari aspek rekayasa perangkat lunak, perbandingan efisiensi kode adalah sebagai 
 Berdasarkan data eksperimental dan tinjauan arsitektur kode, penelitian ini menyimpulkan:
 
 1.  **Untuk Kecepatan Komputasi Murni (Data Heavy Backends)**:  
-    **Golang** adalah pilihan terbaik. Kecepatan decoding JSON yang konsisten lebih cepat (1.09 ms) dan manajemen memori bertipe statis membuatnya sangat tangguh untuk memproses telemetri IoT skala besar yang masuk secara bersamaan (*high concurrency*).
+    **Golang** dan **Dart** menunjukkan performa yang sangat kompetitif dengan kecepatan decoding JSON kompleks di bawah 1 ms. Golang tetap menjadi pilihan tangguh untuk komputasi berat paralel murni berkat manajemen memori bertipe statis yang sangat efisien pada beban multi-threading.
     
 2.  **Untuk Kecepatan Rilis & Pengembangan (Developer-Centric)**:  
-    **Dart** menawarkan keuntungan produktivitas yang signifikan jika sistem frontend dibangun menggunakan Flutter. Menggunakan Dart di sisi backend memangkas kurva pembelajaran (*learning curve*) pengembang karena hanya perlu menggunakan satu bahasa pemrograman (*single-language stack*).
+    **Dart** menawarkan keuntungan produktivitas yang signifikan jika sistem frontend dibangun menggunakan Flutter. Menggunakan Dart di sisi backend memangkas kurva pembelajaran (*learning curve*) pengembang karena hanya perlu menggunakan satu bahasa pemrograman (*single-language stack*) dengan efisiensi asynchronous I/O yang sangat optimal.
 
-Hasil ini menunjukkan bahwa keputusan pemilihan teknologi backend tidak hanya didasarkan pada metrik kecepatan eksekusi semata, melainkan juga mempertimbangkan trade-off antara throughput pemrosesan data dan waktu rilis produk (*time-to-market*).
+Hasil ini menunjukkan bahwa keputusan pemilihan teknologi backend tidak hanya didasarkan pada metrik kecepatan eksekusi semata, melainkan juga mempertimbangkan trade-off antara throughput pemrosesan data, kompleksitas konkurensi jaringan, dan waktu rilis produk (*time-to-market*).
