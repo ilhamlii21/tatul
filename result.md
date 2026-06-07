@@ -10,24 +10,23 @@ Pengujian dilakukan dengan menjalankan 100 iterasi request HTTP GET secara berur
 
 | Kategori Pengujian | Parameter Pengukuran | Golang Backend | Dart Backend | Selisih Performa / Catatan | Pemenang |
 | :--- | :--- | :---: | :---: | :---: | :---: |
-| **Sekuensial** | Rata-rata Network Latency | 134.57 ms | **107.71 ms** | Dart ~20% lebih cepat pada jaringan saat pengujian | **Dart** |
-| | Rata-rata Parsing Latency | 0.95 ms (952.63 μs) | **0.93 ms** (926.62 μs) | Keduanya sangat cepat (< 1 ms), Dart unggul tipis | **Dart** |
-| **Paralel (Concurrency)** | Total Waktu Eksekusi (100 Req) | 1,256 ms (1.26 s) | **870 ms** (0.87 s) | Dart ~30% lebih cepat pada Event Loop | **Dart** |
+| **Sekuensial** | Rata-rata Network Latency | **98.26 ms** | 103.28 ms | Golang ~5% lebih cepat pada jaringan saat pengujian | **Golang** |
+| | Rata-rata Parsing Latency | 0.96 ms (964.08 μs) | **0.96 ms** (955.71 μs) | Keduanya sangat cepat (< 1 ms), Dart unggul tipis (~0.8%) | **Dart** |
+| **Paralel (Concurrency)** | Total Waktu Eksekusi (100 Req) | 1,680 ms (1.68 s) | **958 ms** (0.96 s) | Dart ~43% lebih cepat pada Event Loop | **Dart** |
 
 ### 🔍 Analisis Mendalam Hasil Pengujian:
 
 1.  **Network Latency**:
-    *   **Dart** mencatatkan kestabilitas yang sangat baik dengan rata-rata network latency **107.71 ms**.
-    *   **Golang** mencatatkan rata-rata **134.57 ms**. Perbedaan kecil ini murni disebabkan faktor kondisi jaringan publik (*network jitter*) ke API Gateway Supabase saat pengujian Go dijalankan.
-    *   *Penjelasan Ilmiah*: Dalam 100 iterasi sekuensial, performa jaringan sangat bergantung pada latensi routing publik HTTP/HTTPS. Kestabilan kedua backend tergolong sangat baik karena mampu menjaga rata-rata latensi di kisaran ~100-130 ms tanpa adanya lonjakan ekstrem (outlier bernilai detik) pada pengujian kali ini.
-
+    *   **Golang** mencatatkan rata-rata network latency **98.26 ms**.
+    *   **Dart** mencatatkan rata-rata **103.28 ms**.
+    *   *Penjelasan Ilmiah*: Dalam 100 iterasi sekuensial, performa jaringan sangat bergantung pada latensi routing publik HTTP/HTTPS. Kestabilan kedua backend tergolong sangat baik karena mampu menjaga rata-rata latensi di kisaran ~95-105 ms tanpa adanya lonjakan ekstrem (outlier bernilai detik) pada pengujian kali ini.
 2.  **Parsing Latency (JSON Decoding)**:
-    *   Pada pengujian ini, **Dart** dan **Golang** menunjukkan kecepatan decoding JSON yang hampir setara, masing-masing **0.93 ms** dan **0.95 ms**. 
+    *   Pada pengujian ini, **Dart** dan **Golang** menunjukkan kecepatan decoding JSON yang hampir setara, masing-masing **0.96 ms (955.71 μs)** dan **0.96 ms (964.08 μs)**. 
     *   Kedua backend terbukti luar biasa efisien karena mampu memetakan 3-level data relasional yang kompleks ke dalam objek memori terstruktur dalam kurun waktu di bawah 1 milidetik.
 
 3.  **Concurrency (Paralel 100 Request)**:
-    *   **Dart (Event Loop / Asynchronous)** menyelesaikan 100 request simultan dalam **870 ms**.
-    *   **Golang (Goroutines / Multi-threaded)** menyelesaikan 100 request dalam **1,256 ms**.
+    *   **Dart (Event Loop / Asynchronous)** menyelesaikan 100 request simultan dalam **958 ms**.
+    *   **Golang (Goroutines / Multi-threaded)** menyelesaikan 100 request dalam **1,680 ms**.
     *   *Analisis Concurrency*: Dart memanfaatkan *single-threaded Event Loop* dengan taktik *asynchronous I/O* yang sangat efisien dalam menggunakan kembali (*reuse*) koneksi HTTP Keep-Alive yang sudah terjalin. Sebaliknya, Golang dengan 100 Goroutine membuka banyak koneksi TCP secara paralel ke API Gateway Supabase, yang memicu overhead waktu jabat tangan (*handshake*) SSL/TLS secara simultan di sisi jaringan.
 
 ---
